@@ -111,9 +111,9 @@ def find_eligible_rows(cik, date, data, cusips, patterns, unprocessed_output, re
         minlen = min([len(row) for row in keep_rows])
 
         for item in sorted(list(keep_rows), key=len):
-            if len(item) > minlen + 20:
+            if len(item) > minlen + 20:  # < > ?
                 keep_rows.remove(item)
-                bad_rows.append(item)
+                bad_rows.append(item["Line"])
 
         f_out = open(unprocessed_output, "w", newline="", encoding="utf-8")
         csv_f = csv.writer(f_out, csv.QUOTE_ALL)
@@ -142,10 +142,17 @@ def parse_file(cik, date, data, cusips, patterns, output_table, broken_output):
     cusip_hits = []
     before_cusip, after_cusip = [], []
 
-    use_tab = use_csv = 0
+    use_tab = use_csv = garbage = 0
+    use_html = False
 
     for line in data:
         cusip = line["CUSIP"]
+
+        if line["Line"].strip().startswith(cusip) and len(line["Line"].strip()) > len(cusip) + 15:
+            cusip_first = True
+        elif line["Line"].strip().startswith(cusip) and len(line["Line"].strip()) < len(cusip) + 5:
+            garbage += 1
+
         try:
             before, after = line["Line"].split(cusip, 1)
         except ValueError:
@@ -153,6 +160,9 @@ def parse_file(cik, date, data, cusips, patterns, output_table, broken_output):
 
         if "\t" in line["Line"]:
             use_tab += 1
+
+        if "<HTML>" in line["Line"].upper():
+            use_html = True
 
         if line["Line"].count(",") > line["Line"].count(" "):
             use_csv += 1
@@ -170,6 +180,10 @@ def parse_file(cik, date, data, cusips, patterns, output_table, broken_output):
     elif use_csv > len(data)//2:
         print("File: {0}, CIK: {1}, Date: {2} using csv".format(output_table, cik, date))
         csv_file(cik, date, datalines, cusips, patterns, output_table, broken_output)
+    elif use_html:
+        print("File: {0}, CIK: {1}, Date: {2} using HTML".format(output_table, cik, date))
+    elif garbage > len(data)//2:
+        print("File: {0}, CIK: {1}, Date: {2} looks like garbage".format(output_table, cik, date))
     else:
         print("File: {0}, CIK: {1}, Date: {2} using sieve".format(output_table, cik, date))
         reg_file(cik, date, datalines, cusips, patterns, output_table, broken_output)
@@ -220,7 +234,7 @@ def load_cusips(repo_dir):
 def load_patterns(repo_dir):
     """Set of regular expressions to filter text"""
 
-    pattern_file = open(os.path.join(repo_dir, "patterns.csv"), "r", encoding="utf-8", newline="")
+    pattern_file = open(os.path.join(repo_dir, "src", "patterns.csv"), "r", encoding="utf-8", newline="")
     pattern_dict = csv.DictReader(pattern_file)
     patterns = OrderedDict()
     for line in pattern_dict:
@@ -236,9 +250,12 @@ def make_dirs(dirs_to):
             pass
 
 
-def clean_run(repo_dir):
+def clean_run(repo_dir, unprocessed_dir):
     del_files = glob.glob(os.path.join(repo_dir, "Data") + "/logdata*.txt")
     for f in del_files:
+        os.remove(f)
+    unproc_files = glob.glob(unprocessed_dir + "/*/*.txt")
+    for f in unproc_files:
         os.remove(f)
 
 
@@ -249,7 +266,8 @@ def main():
     patterns = load_patterns(repo_dir)
     file_list = load_files(rawdata_dir)
 
-    clean_run(repo_dir)
+    if len(glob.glob(unprocessed_dir + "/*/*.txt")) <= len(file_list):
+        clean_run(repo_dir, unprocessed_dir)
 
     log = open(os.path.join(repo_dir, "Data", "log.txt"), "w")
 
