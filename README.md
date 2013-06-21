@@ -8,6 +8,32 @@
 
 ----------
 
+* download_index.py  
+
+    Requires:  
+    * List of years and quarters that should be downloaded.  
+
+    Generates:  
+    * Index csv file for each quarter and year containing a list of all filings.  
+
+
+----------
+ 
+* download_filings.py  
+ 
+    Requires:  
+    * Index csv files for the entire range of years and quarters that are to be downloaded.
+    * A list of filing types that should be downloaded [This is allowed to be None if all filing types should be downloaded].
+    * A list of CIKs that should have their filings downloaded [This is allowed to be None if all CIKs should be downloaded].  
+    * Both CIKs and filing types should not be None. This will attempt to download all Edgar data in existence which is over 12.5 million files.
+
+    Generates:  
+    * Each filing is downloaded in the format CIK\_yyyy-mm-dd\_extension.txt, where CIK has leading zeros removed and extension is a portion of the accession number guaranteeing unique file names. This allows for multiple filings by the same company on a given day. 
+    * The data will be put into separate folders based on year and quarter, allowing for slightly more organization.  
+
+
+----------
+
 *   move_files.py 
 
     Requires:  
